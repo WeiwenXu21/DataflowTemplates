@@ -25,6 +25,7 @@ import org.apache.commons.configuration2.ConfigurationUtils;
 import org.apache.commons.configuration2.ImmutableConfiguration;
 import org.apache.commons.configuration2.builder.fluent.Configurations;
 import org.apache.commons.configuration2.ex.ConfigurationException;
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.impl.StaticLoggerBinder;
@@ -68,7 +69,8 @@ import org.slf4j.impl.StaticLoggerBinder;
  *  </li>
  *  <li>
  *    {@literal databaseManagementSystem} the kind of database that the connector will connect to.
- *    Options are: {@literal mysql}, {@literal postgres}. (default: {@literal mysql}).
+ *    Options are: {@literal mysql}, {@literal postgres}, {@literal sqlserver}.
+ *    (default: {@literal mysql}).
  *  </li>
  *  <li>
  *    {@literal singleTopicMode} - true/false whether to publish changes from all tables into a
@@ -129,20 +131,35 @@ public class App {
     ImmutableConfiguration debeziumConfig = config.immutableSubset("debezium");
 
     startSender(
-        config.getString("databaseName"),
-        config.getString("databaseUsername"),
-        config.getString("databasePassword"),
-        config.getString("databaseAddress"),
-        config.getString("databasePort", "3306"), // MySQL default port is 3306
-        config.getString("gcpProject"),
-        config.getString("gcpPubsubTopicPrefix"),
-        config.getString("offsetStorageFile", DEFAULT_OFFSET_STORAGE_FILE),
-        config.getString("databaseHistoryFile", DEFAULT_DATABASE_HISTORY_FILE),
+        checkParsing(config.getString("databaseName")),
+        checkParsing(config.getString("databaseUsername")),
+        checkParsing(config.getString("databasePassword")),
+        checkParsing(config.getString("databaseAddress")),
+        checkParsing(config.getString("databasePort", "3306")), // MySQL default port is 3306
+        checkParsing(config.getString("gcpProject")),
+        checkParsing(config.getString("gcpPubsubTopicPrefix")),
+        checkParsing(config.getString("offsetStorageFile", DEFAULT_OFFSET_STORAGE_FILE)),
+        checkParsing(config.getString("databaseHistoryFile", DEFAULT_DATABASE_HISTORY_FILE)),
         config.getBoolean("inMemoryOffsetStorage", false),
         config.getBoolean("singleTopicMode", false),
-        config.getString("whitelistedTables"),
-        config.getString("databaseManagementSystem", DEFAULT_RDBMS),
+        checkParsing(config.getString("whitelistedTables")),
+        checkParsing(config.getString("databaseManagementSystem", DEFAULT_RDBMS)),
         debeziumConfig);
+    }
+
+  /**
+   * Handle messy parsing.
+   *
+   * This method helps to standardize the String being parsed from properties file.
+   * It removes double or single quotation symbol(s) if they are present in the file.
+   *
+   * @param parsedString is the String parsed by config
+   * @return the clean String
+   */
+    private static String checkParsing(String parsedString){
+      parsedString = StringUtils.strip(parsedString,"\"");
+      parsedString = StringUtils.strip(parsedString,"\'");
+      return parsedString;
     }
 
     /**
@@ -208,7 +225,7 @@ public class App {
     checkNotNull(gcpPubsubTopic, "Please provide a gcpPubsubTopicPrefix parameter. Got %s",
         gcpPubsubTopic);
     checkNotNull(rdbms, "Please provide a databaseManagementSystem parameter."
-        + " This can be either mysql or postgres. Got %s", rdbms);
+        + " This can be mysql, postgres or sqlserver. Got %s", rdbms);
     DebeziumToPubSubDataSender dataSender =
         new DebeziumToPubSubDataSender(
             databaseName,

@@ -36,6 +36,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -54,6 +55,7 @@ public class DebeziumToPubSubDataSender implements Runnable {
       new ImmutableMap.Builder<String, String>()
           .put("mysql", "io.debezium.connector.mysql.MySqlConnector")
           .put("postgres", "io.debezium.connector.postgresql.PostgresConnector")
+          .put("sqlserver", "io.debezium.connector.sqlserver.SqlServerConnector")
           .build();
 
   private static final Logger LOG = LoggerFactory.getLogger(DebeziumToPubSubDataSender.class);
@@ -158,11 +160,28 @@ public class DebeziumToPubSubDataSender implements Runnable {
     Iterator<String> keys = debeziumConfig.getKeys();
     while (keys.hasNext()) {
       String configKey = keys.next();
-      configBuilder = configBuilder.with(configKey, debeziumConfig.getString(configKey));
+      configBuilder = configBuilder.with(configKey, checkParsing(debeziumConfig.getString(configKey)));
     }
 
     config = configBuilder.build();
 
+  }
+
+  /**
+   * Handle messy parsing.
+   *
+   * This method helps to standardize the String being parsed from properties file.
+   * It removes double or single quotation symbol(s) if they are present in the file.
+   *
+   * This method is for handling parsing of debezium-specific config.
+   *
+   * @param parsedString is the String parsed by config
+   * @return the clean String
+   */
+  private String checkParsing(String parsedString){
+    parsedString = StringUtils.strip(parsedString,"\"");
+    parsedString = StringUtils.strip(parsedString,"\'");
+    return parsedString;
   }
 
   @Override
